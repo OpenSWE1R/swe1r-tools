@@ -9,6 +9,7 @@ This is a collection of small tools to work with files from the 1999 Game "Star 
 - scr2wav.py: Converts SCR audio files from the webdemo to WAV files
 - extract-racer-tab.py: Extracts strings from swep1rcr.exe which are typcially translated
 - parse-racer-tab.py: Validates racer.tab translation files
+- parse-savedata.py: Parses (tgfd.dat, 4056 bytes) and profile (*.sav, 84 bytes) files
 - decompress.c: Decompress "Comp" modelblock chunks (found in N64 version)
 
 ## Installation
