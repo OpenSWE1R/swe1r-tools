@@ -105,14 +105,55 @@ for path in sys.argv[2:]:
       texinfo[texindex] = t
       texinfo_source[texindex] = path
 
+# Open the textureblock
 with open(sys.argv[1], 'rb') as f:
+
+  # Start to output tags for wxHexEditor
+  tags = open("/tmp/swep1r/wxhexeditor.tags", "w")
+  tags.write('<?xml version="1.0" encoding="UTF-8"?>\n' + '<wxHexEditor_XML_TAG>\n' + '  <filename>\n')
+  tag_id = 0
+  def add_tag(start, size, text, colour = "#888888", dump=False):
+    global tag_id
+    tag_id += 1
+    s = ''
+    s += '    <TAG id="%s">\n' % tag_id
+    s += '      <start_offset>%d</start_offset>\n' % start
+    s += '      <end_offset>%d</end_offset>\n' % (start + size - 1)
+    s += '      <tag_text>%s (%d bytes)</tag_text>\n' % (text, size)
+    s += '      <font_colour>#000000</font_colour>\n'
+    s += '      <note_colour>%s</note_colour>\n' % colour
+    s += '    </TAG>\n'
+    tags.write(s)
+    if dump:
+      off = f.tell()
+      f.seek(start)
+      buf = f.read(size)
+      with open('/tmp/swep1r/%s.bin' % text, 'wb') as t:
+        t.write(buf)
+      f.seek(off)
+
+  # Start dumping all textures
   count = read32(f)
+  add_tag(0, 4, 'count', '#FF88FF')
+  add_tag(4 + 8 * count, 4, 'end-offset', '#8888FF')
 
-  # Now dump all textures
+  for i in range(0, count):
 
-  for i in range(0, count - 1):
+    f.seek(4 + 8 * i)
+    off_a = read32(f)
+    off_b = read32(f)
+    off_c = read32(f)
+
+    add_tag(4 + 8 * i + 0, 4, 'pixel-offset-%d' % i)
+    add_tag(4 + 8 * i + 4, 4, 'palette-offset-%d' % i)
 
     if i not in texinfo:
+      if off_b != 0:
+        off_a_end = off_b
+        add_tag(off_b, off_c - off_b, 'palette-data-%d-unused' % i, "#88FF88", dump=False)
+      else:
+        off_a_end = off_c
+      add_tag(off_a, off_a_end - off_a, 'pixel-data-%d-0x%02X-unused' % (i, flags), "#FF8888", dump=False)
       print("Unknown texture information for %d" % i)
       continue
 
@@ -124,26 +165,17 @@ with open(sys.argv[1], 'rb') as f:
 
     #FIXME: POT width and height?!
 
-    f.seek(4 + 8 * i)
-    off_a = read32(f)
-    off_b = read32(f)
-    off_c = read32(f)
-    length = off_c - off_a
-
-    print("%d: a: 0x%08X b: 0x%08X (c: 0x%08X; length: %d or %d bytes)" % (i, off_a, off_b, off_c, off_b - off_a, length))
-
     # Only flags 0x10 and 0x01 are known to exist
     #FIXME: Also uses 0x20
-    print("Flags: 0x%02X " % flags)
     #assert(flags & ~0x11 == 0)
 
     im = Image.new("RGBA", (width, height))
     pixels = im.load()
 
+    f.seek(off_a)
 
     if format_a == 0 and format_b == 3:
 
-      f.seek(off_a)
       for y in range(0, height):
         for x in range(0, width):
           r, g, b, a = f.read(4)
@@ -151,7 +183,8 @@ with open(sys.argv[1], 'rb') as f:
 
     elif format_a == 2 and format_b == 0:
 
-      f.seek(off_a)
+      add_tag(off_b, 2 * 16, 'palette-data-%d' % i, "#44FF44", dump=False)
+
       for y in range(0, height):
         for x in range(0, width):
 
@@ -174,7 +207,8 @@ with open(sys.argv[1], 'rb') as f:
 
     elif format_a == 2 and format_b == 1:
 
-      f.seek(off_a)
+      add_tag(off_b, 2 * 256, 'palette-data-%d' % i, "#44FF44", dump=False)
+
       for y in range(0, height):
         for x in range(0, width):
 
@@ -194,7 +228,6 @@ with open(sys.argv[1], 'rb') as f:
 
     elif format_a == 4 and format_b == 0:
 
-      f.seek(off_a)
       for y in range(0, height):
         for x in range(0, width):
 
@@ -208,7 +241,6 @@ with open(sys.argv[1], 'rb') as f:
 
     elif format_a == 4 and format_b == 1:
 
-      f.seek(off_a)
       for y in range(0, height):
         for x in range(0, width):
           value = f.read(1)[0]
@@ -217,6 +249,9 @@ with open(sys.argv[1], 'rb') as f:
     else:
       print("Unhandled texture format %d / %d (%s)" % (format_a, format_b, texinfo_source[i]))
       assert(False)
+
+    off_a_end = f.tell()
+    add_tag(off_a, off_a_end - off_a, 'pixel-data-%d-0x%02X' % (i, flags), "#FF4444", dump=False)
 
     im = im.transpose(Image.FLIP_TOP_BOTTOM)
     im.save("/tmp/swep1r/texture-0x%x.png" % (i), 'PNG')
@@ -232,3 +267,5 @@ with open(sys.argv[1], 'rb') as f:
         dword_50C61C = (int)*a3;
       if ( a2 == 118 ):
         pass # run "invcol" filter
+
+  tags.write('  </filename>\n' + '</wxHexEditor_XML_TAG>\n')
