@@ -28,15 +28,15 @@ def shifter(a1):
 
 with open(sys.argv[1], 'rb') as f:
   count = read32(f)
-  for i in range(0, count - 1):
+  for i in range(0, count):
     f.seek(4 + 4 * i)
-    section_a = read32(f)
-    section_b = read32(f)
-    length = section_b - section_a
+    off_a = read32(f)
+    off_b = read32(f)
+    length = off_b - off_a
 
-    print("%d: a: 0x%08X b: 0x%08X length: %d" % (i, section_a, section_b, length))
+    print("%d: a: 0x%08X b: 0x%08X length: %d" % (i, off_a, off_b, length))
 
-    f.seek(section_a)
+    f.seek(off_a)
 
     width = read16(f)
     print("total width?: %d" % width) # [0]
@@ -60,11 +60,11 @@ with open(sys.argv[1], 'rb') as f:
     # FIXME: This might be bad..
     headsize = 8 * unk5 # (8 * unk5 + 0xF) & 0xFFFFFFF0
 
+    pages = []
     if (unk7 & 0xFF != 2) or unk4:
       print("Load! %d * 8" % unk5)
-      f.seek(section_a + 20)
+      f.seek(off_a + 20)
       #buf = f.read(unk5 * 8)
-      pages = []
       for j in range(0, unk5):
         page = (read16(f), read16(f), read32(f))
         print("  %d %d %d" % page)
@@ -75,14 +75,14 @@ with open(sys.argv[1], 'rb') as f:
       #v23 = *(_DWORD *)(*(_DWORD *)v18 + 4) - v29;
       #count = b + 4 - unk4 # Read a DWORD there?!
       #sub_42D640(1, v29 + v42, v22, count);
-      f.seek(section_a + unk4)
+      f.seek(off_a + unk4)
       #*v40 = v22
       print("Bad!")
     else:
       print("Good!")
 
     for j in range(0, unk5):
-      f.seek(section_a + headsize)
+      f.seek(off_a + headsize)
 
       #if v32 == v30 - 1:
       #  v33 = v43 - v42
@@ -159,45 +159,29 @@ with open(sys.argv[1], 'rb') as f:
     elif (fmt == 0x0401):
       reader = pixel_a8
     elif (fmt == 0x0200):
-      #FIXME: Missing color!?
       reader = pixel_p4
-      f.seek(section_a + unk4)
+      f.seek(off_a + unk4)
       pixel_palette = []
       for j in range(0, 16):
-        r = f.read(2)[0]
-        g = r
-        b = r
-        a = 255
-        pixel_palette.append((r, g, b, a))
+        # Read palette data
+        color = int.from_bytes(f.read(2), byteorder='big', signed=False)
+        a = (color >> 0) & 0x1
+        b = ((color >> 1) & 0x1F) / 0x1F
+        g = ((color >> 6) & 0x1F) / 0x1F
+        r = ((color >> 11) & 0x1F) / 0x1F
+        pixel_palette.append((int(r * 255), int(g * 255), int(b * 255), a * 0xFF))
     elif (fmt == 0x0201):
-      #FIXME: Missing color!?
       reader = pixel_p8
-      f.seek(section_a + unk4)
-      buf = f.read(256 * 2)
-      with open("/tmp/swep1r/sprite-%d-palette.bin" % i, 'wb') as t:
-        t.write(buf)
-      f.seek(section_a + unk4)
+      f.seek(off_a + unk4)
       pixel_palette = []
       for j in range(0, 256):
-        yuv = f.read(2)
-        y = yuv[0]
-        u = ((yuv[1] >> 0) & 0xF) * 0x11
-        v = ((yuv[1] >> 4) & 0xF) * 0x11
-        r = yuv[1]
-        g = r
-        b = r
-
-        if False:
-          r = y + 1.403 * v
-          g = y - 0.344 * u - 0.714 * v
-          b = y + 1.770 * u
-          r = int(r)
-          g = int(g)
-          b = int(b)
-
-
-        a = 255
-        pixel_palette.append((r, g, b, a))
+        # Read palette data
+        color = int.from_bytes(f.read(2), byteorder='big', signed=False)
+        a = (color >> 0) & 0x1
+        b = ((color >> 1) & 0x1F) / 0x1F
+        g = ((color >> 6) & 0x1F) / 0x1F
+        r = ((color >> 11) & 0x1F) / 0x1F
+        pixel_palette.append((int(r * 255), int(g * 255), int(b * 255), a * 0xFF))
 
     else:
       assert(False)
@@ -225,7 +209,7 @@ with open(sys.argv[1], 'rb') as f:
       elif fmt == 0x0401:
         page_width = (page_width + 0x7) & 0xFFFFFFF8
 
-      f.seek(section_a + page_offset)
+      f.seek(off_a + page_offset)
 
       print("Drawing page (%d x %d) at %d, %d from %d" % (page_width, page_height, x, y, f.tell()))
 
