@@ -219,7 +219,7 @@ with open(sys.argv[1], 'rb') as f:
       assert(False)
 
     im = im.transpose(Image.FLIP_TOP_BOTTOM)
-    im.save("/tmp/swep1r/texture-0x%x.png" % (i), 'PNG')
+    im.save("/tmp/swep1r/texture_%d.png" % (i), 'PNG')
 
     if False:
       if (a2 == 1257):
