@@ -166,8 +166,8 @@ def dumpProfile(data):
 
   #FIXME: 0x20
   #FIXME: Profile-index [16 bit] and another 16 bit field
-  unk3C = struct.unpack("<I", data[32:36])[0]
-  print("Unknown (at 0x20): 0x%08X" % (unk3C))
+  unk20 = struct.unpack("<I", data[32:36])[0]
+  print("Unknown (at 0x20): 0x%08X" % (unk20))
 
   last_podracer = data[36]
   print("Last podracer: %d (%s)" % (last_podracer, podracers[last_podracer]))
@@ -193,7 +193,8 @@ def dumpProfile(data):
 
   #Padding?
   unk3C = struct.unpack("<I", data[0x3C:0x40])[0]
-  assert(unk3C == 0x00000000)
+  print("Unknown (at 0x3C): 0x%08X" % (unk3C))
+  #assert(unk3C == 0x00000000)
 
   pit_droids = data[0x40]
   print("Pit droids: %u / 4" % (pit_droids))
@@ -251,33 +252,32 @@ with open(sys.argv[1], 'rb') as in_file:
     print("Best times (%s):" % (times[j]))
     for i in range(0, 25):
 
-      #FIXME: Note that only even slots are used.
-      #       Not sure what the odd ones are used for. 
-      o = (j * 25 + i) * 2
+      for k in range(0, 2):
+        o = (j * 25 + i) * 2 + k
 
-      def formatTime(time):
-        milliseconds = int(time * 1000)
-        seconds = milliseconds // 1000
-        minutes = seconds // 60
-        return "%02d:%02d.%.03d" % (minutes % 60, seconds % 60, milliseconds % 1000.0)
-      time = struct.unpack("<f", data[0x154 + 4 * o:0x154 + 4 * o + 4])[0]
-      name = readString(data[0x2E4 + 32 * o:0x2E4 + 32 * o + 32])
-      podracer = data[0xF64 + o]
+        def formatTime(time):
+          milliseconds = int(time * 1000)
+          seconds = milliseconds // 1000
+          minutes = seconds // 60
+          return "%02d:%02d.%.03d" % (minutes % 60, seconds % 60, milliseconds % 1000.0)
+        time = struct.unpack("<f", data[0x154 + 4 * o:0x154 + 4 * o + 4])[0]
+        name = readString(data[0x2E4 + 32 * o:0x2E4 + 32 * o + 32])
+        podracer = data[0xF64 + o]
 
-      # There is a 32 bit float time of 3599.99 if the race was not done yet
-      bad_time = struct.unpack('f', struct.pack('f', 3599.99))[0]
-      if (time >= bad_time):
-        printable_time = "--:--.---"
-        name = ""
-      else:
-        printable_time = formatTime(time)
+        # There is a 32 bit float time of 3599.99 if the race was not done yet
+        bad_time = struct.unpack('f', struct.pack('f', 3599.99))[0]
+        if (time >= bad_time):
+          printable_time = "--:--.---"
+          name = ""
+        else:
+          printable_time = formatTime(time)
 
-      # FIXME: Race names are bad.
-      #        These are the names as the track list from the extract-data tool.
-      #        (Sorted by planet)
-      race = "Unknown track"
+        # FIXME: Race names are bad.
+        #        These are the names as the track list from the extract-data tool.
+        #        (Sorted by planet)
+        race = "Unknown track"
 
-      print("- Time %d: %s, %s '%s' (%d (%s))" % (i, race, printable_time, name, podracer, podracers[podracer]))
+        print("- Time %d/%d: %s, %s '%s' (%d (%s))" % (i, k, race, printable_time, name, podracer, podracers[podracer]))
     print("")
 
     # Padding?
